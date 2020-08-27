@@ -13,79 +13,79 @@ class QR
     private $color1 = 0x003355; // QR color 2
     private $moduleSize = 2; // size of one module
     
-    //переменные по умолчанию
+    //default vars
     private $QRsize = 21;
-    private $defct = "byte"; //дефолтный тип кодирования
-    private $defver = 1; //дефолтная версия QR
-    private $defcli = 1; //дефолтный индекс уровня коррекции
-    private $defcl = "M"; //дефолтный уровень коррекции
-    private $defmi = 4; //дефолтный индекс маски
-    private $debug = false; //флаг дебага отображения вычисляемых переменных
-    private $deftext = "Hello, World!";
+    private $defct = "byte"; //default encoding type
+    private $defver = 1; //default QR version
+    private $defcli = 1; //default correction level index
+    private $defcl = "M"; //default correction level
+    private $defmi = 4; //default mask index
+    private $debug = false; //debug flag
+    private $deftext = "Hello, World!"; //default main text
   
-    //переменные, вычисляемые в процессе генерации
-    private $MI; //индекс маски
-    private $SIZE; //Размер QR
-    private $CLI; //индекс уровня коррекции
-    private $textBytesTotal = null; //количество байтов заданного текста
-    private $CTC = null; //бинарный код типа кодирования
-    private $maxInfo = null; //максимальное количество полезной информации в битах
-    private $maxInfoBytes = null; //максимальное количество полезной информации в байтах
-    private $totalBytes = null; //примерное общее количество байтов информации
-    private $MBCODE = null; //бинарный код маски
-    private $VERCODE = null; //бинарный код версии QR
-    private $LPPS = null; //расположение выравнивающих узоров
+    //temp data
+    private $MI; //mask index
+    private $SIZE; //QR size
+    private $CLI; //correction level index
+    private $textBytesTotal = null; //main text bytes total
+    private $CTC = null; //encoding type binary code
+    private $maxInfo = null; //usefull information maximum length in bits
+    private $maxInfoBytes = null; //usefull information maximum length in bytes
+    private $totalBytes = null; //total information bytes count
+    private $MBCODE = null; //mask binary code
+    private $VERCODE = null; //QR version binary code
+    private $LPPS = null; //alignments positions
     private $DATALENGTH = null; //длина поля количества данных
-    private $ECC = null; //Количество байтов коррекции на один блок (codewords)
-    private $GP = null; //Генерирующий многочлен для codewords
-    private $BNUM = null; //Количество блоков для отображения
-    private $BARR = null; //основной массив байтов информации
-    private $MATRIX = null; //основной массив QR
-    private $PiP = null; //отступ в пикселях
-    private $PiM = 5; //отступ в модулях
-    private $BLOCKS = array(); //блоки байтов данных
-    private $CORBLOCKS = array(); //блоки байтов коррекции
-    private $multicolor = false; // цвета для проверки распределения инфы
-    private $bittrace = false; // порядковые номера битов для проверки
-    private $totalCanvasFreeModules = 0; //кол-во свободных модулей для проверки перед внесением данных
-    private $totalDataModulesWithEC = 0; //общее кол-во бит для размещения
-    private $totalBitsShouldBe = 0; //предварительное число бит холста
-    private $systemInfo = ''; //тип кодирования и количество информации, системная информация в блоке данных
+    private $ECC = null; //correction bytes count per one block (codewords)
+    private $GP = null; //generating polynomial для codewords
+    private $BNUM = null; //blocks to display count
+    private $BARR = null; //Information bytes main array
+    private $MATRIX = null; //QR main array
+    private $PiP = null; //offset in pixels
+    private $PiM = 5; //offset in modules
+    private $BLOCKS = array(); //data bytes blocks
+    private $CORBLOCKS = array(); //correction bytes blocks
+    private $multicolor = false; //colors for tracking 
+    private $bittrace = false; // sequence numbers of bits to check
+    private $totalCanvasFreeModules = 0; //number of available modules to check before entering data
+    private $totalDataModulesWithEC = 0; //total number of bits to place
+    private $totalBitsShouldBe = 0; //the provisional number of bits of the canvas
+    private $systemInfo = ''; //encoding type and amount of information, system information in the data block
   
-    //Необходимые массивы
-    //Массив уровней коррекции
+    //The necessary arrays
+    //Correction levels
     private $CLarr = array('L','M','Q','H');
     private $CLcodes = array('01','00','11','10');
-    //Массив типов кодирования
+    //Encoding types
     private $CTs = array("numeric"=>"0001","alphanumeric"=>"0010","byte"=>"0100","1"=>"0001","2"=>"0010","3"=>"0100"); 
-    //Массив буквенно-цифрового типа кодирования
+    //Alphabet encoding type array
     private $alphanumeric = array('0','1','2','3','4','5','6','7','8','9','A','B','C','D','E','F','G','H','I','J','K','L','M','N','O','P','Q','R','S','T','U','V','W','X','Y','Z',' ','$','%','*','+','-','.','/',':'); 
     private $SysInfoPos = null;
   
-    //массив максимального количества полезной информации в битах для выбранных версии и уровня коррекции
+    //maximum amount of useful information in bits for the selected version and correction level
     private $MaxInfoArray = array(
       'L'=>array(152,272,440,640,864,1088,1248,1552,1856,2192,2592,2960,3424,3688,4184,4712,5176,5768,6360,6888,7456,8048,8752,9392,10208,10960,11744,12248,13048,13880,14744,15640,16568,17528,18448,19472,20528,21616,22496,23648),
       'M'=>array(128,224,352,512,688,864,992,1232,1456,1728,2032,2320,2672,2920,3320,3624,4056,4504,5016,5352,5712,6256,6880,7312,8000,8496,9024,9544,10136,10984,11640,12328,13048,13800,14496,15312,15936,16816,17728,18672),
       'Q'=>array(104,176,272,384,496,608,704,880,1056,1232,1440,1648,1952,2088,2360,2600,2936,3176,3560,3880,4096,4544,4912,5312,5744,6032,6464,6968,7288,7880,8264,8920,9368,9848,10288,10832,11408,12016,12656,13328),
       'H'=>array(72,128,208,288,368,480,528,688,800,976,1120,1264,1440,1576,1784,2024,2264,2504,2728,3080,3248,3536,3712,4112,4304,4768,5024,5288,5608,5960,6344,6760,7208,7688,7888,8432,8768,9136,9776,10208)
     );
-    //массив вызываемых функций согласно типу кодирования
+    //called functions according to the encoding type
     private $CTfuncs = array("numeric"=>"ct_num_gen","alphanumeric"=>"ct_an_gen","byte"=>"ct_byte_gen");
-    //массив количества блоков для выбранных версии и уровня коррекции
+    //number of blocks for the selected version and correction level
     private $blocksnum = array(
       'L'=>array(1,1,1,1,1,2,2,2,2,4,4,4,4,4,6,6,6,6,7,8,8,9,9,10,12,12,12,13,14,15,16,17,18,19,19,20,21,22,24,25),
       'M'=>array(1,1,1,2,2,4,4,4,5,5,5,8,9,9,10,10,11,13,14,16,17,17,18,20,21,23,25,26,28,29,31,33,35,37,38,40,43,45,47,49),
       'Q'=>array(1,1,2,2,4,4,6,6,8,8,8,10,12,16,12,17,16,18,21,20,23,23,25,27,29,34,34,35,38,40,43,45,48,51,53,56,59,62,65,68),
       'H'=>array(1,1,2,4,4,4,5,6,8,8,11,11,16,16,18,16,19,21,25,25,25,34,30,32,35,37,40,42,45,48,51,54,57,60,63,66,70,74,77,81)
     );
-    //массив количества байтов коррекции для выбранных версии и уровня коррекции
+    //the number of correction bytes for the selected version and correction level
     private $ECCodewordsarray = array(
       'L'=>array(7,10,15,20,26,18,20,24,30,18,20,24,26,30,22,24,28,30,28,28,28,28,30,30,26,28,30,30,30,30,30,30,30,30,30,30,30,30,30,30),
       'M'=>array(10,16,26,18,24,16,18,22,22,26,30,22,22,24,24,28,28,26,26,26,26,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28,28),
       'Q'=>array(13,22,18,26,18,24,18,22,20,24,28,26,24,20,30,24,28,28,26,30,28,30,30,30,30,28,30,30,30,30,30,30,30,30,30,30,30,30,30,30),
       'H'=>array(17,28,22,16,22,28,26,26,24,28,24,28,22,24,24,30,28,28,26,28,30,24,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30,30)
     );
-    //массив генерирующих многочленов
+    //generating polynomials
     private $GeneratorPolynomials = array(
       "7"=>array(87, 229, 146, 149, 238, 102, 21),
       "10"=>array(251, 67, 46, 61, 118, 70, 64, 94, 32, 45),
@@ -101,7 +101,7 @@ class QR
       "28"=>array(168, 223, 200, 104, 224, 234, 108, 180, 110, 190, 195, 147, 205, 27, 232, 201, 21, 43, 245, 87, 42, 195, 212, 119, 242, 37, 9, 123),
       "30"=>array(41, 173, 145, 152, 216, 31, 179, 182, 50, 48, 110, 86, 239, 96, 222, 125, 42, 173, 226, 193, 224, 130, 156, 37, 251, 216, 238, 40, 192, 180)
     );
-    //массив длины поля количества данных
+    //length of the data quantity field
     private $datalengtharray = array(
       
       "numeric"=>array(
@@ -119,9 +119,9 @@ class QR
         array("from"=>10,"to"=>40,"bits"=>16)
       )
     );
-    //Поле Галуа
+    //galois field
     private $GaloisField = array(1,2,4,8,16,32,64,128,29,58,116,232,205,135,19,38,76,152,45,90,180,117,234,201,143,3,6,12,24,48,96,192,157,39,78,156,37,74,148,53,106,212,181,119,238,193,159,35,70,140,5,10,20,40,80,160,93,186,105,210,185,111,222,161,95,190,97,194,153,47,94,188,101,202,137,15,30,60,120,240,253,231,211,187,107,214,177,127,254,225,223,163,91,182,113,226,217,175,67,134,17,34,68,136,13,26,52,104,208,189,103,206,129,31,62,124,248,237,199,147,59,118,236,197,151,51,102,204,133,23,46,92,184,109,218,169,79,158,33,66,132,21,42,84,168,77,154,41,82,164,85,170,73,146,57,114,228,213,183,115,230,209,191,99,198,145,63,126,252,229,215,179,123,246,241,255,227,219,171,75,150,49,98,196,149,55,110,220,165,87,174,65,130,25,50,100,200,141,7,14,28,56,112,224,221,167,83,166,81,162,89,178,121,242,249,239,195,155,43,86,172,69,138,9,18,36,72,144,61,122,244,245,247,243,251,235,203,139,11,22,44,88,176,125,250,233,207,131,27,54,108,216,173,71,142,1);
-    //массив расположений выравнивающих узоров согласно версии
+    //alignment pattern locations according to the version
     private $LPP = array(
       0,
       0,
@@ -165,7 +165,7 @@ class QR
       array(6,26,54,82,110,138,166),
       array(6,30,58,86,114,142,170)
     );
-    //массив бинарных кодов версий
+    //binary version codes
     private $verCodes = array(
       "7"=>"000010 011110 100110",
       "8"=>"010001 011100 111000",
@@ -202,14 +202,14 @@ class QR
       "39"=>"101010 000110 001011",
       "40"=>"111001 000100 010101"
     );
-    //массив бинарных кодов масок согласно индексу маски и уровню коррекции (их типа вообще 8 штук, т.е. индексы: 0-7)
+    //binary mask codes according to the mask index and correction level (there are generally 8 types of them, i.e. indexes: 0-7)
     private $masksCodes = array(
       'L'=>array("111011111000100",    "111001011110011",    "111110110101010",    "111100010011101",    "110011000101111",    "110001100011000",    "110110001000001",    "110100101110110"    ),
       'M'=>array("101010000010010",    "101000100100101",    "101111001111100",    "101101101001011",    "100010111111001",    "100000011001110",    "100111110010111",    "100101010100000"    ),
       'Q'=>array("011010101011111",    "011000001101000",    "011111100110001",    "011101000000110",    "010010010110100",    "010000110000011",    "010111011011010",    "010101111101101"    ),
       'H'=>array("001011010001001",    "001001110111110",    "001110011100111",    "001100111010000",    "000011101100010",    "000001001010101",    "000110100001100",    "000100000111011"    )
     );
-    //функции масок, применяемые на последнем этапе
+    //mask functions used in the last stage
     private $masks = array(
       "(X+Y) % 2",
       "Y % 2",
