@@ -1,27 +1,32 @@
 <?php
 class QR
 {
-    private $SETTINGSALLOWEDTOSET = array("CT","VERSION","CL","text","responseType","colorfull","color0","color1","moduleSize");
-    private $CT; //encoding type
-    private $VERSION; //QR version
-    private $CL; //correction level
-    private $text = "Привет, мир!"; //main text
-    private $responseType = "base64"; //response type [base64 for img src]
-    private $b64=null; //base64 response
-    private $colorfull = false; // colorate QR
-    private $color0 = 0x00ccff; // QR color 1
-    private $color1 = 0x003355; // QR color 2
-    private $moduleSize = 2; // size of one module
-    
-    //default vars
-    private $QRsize = 21;
-    private $defct = "byte"; //default encoding type
-    private $defver = 1; //default QR version
-    private $defcli = 1; //default correction level index
-    private $defcl = "M"; //default correction level
-    private $defmi = 4; //default mask index
     private $debug = false; //debug flag
-    private $deftext = "Hello, World!"; //default main text
+    private $error = "";
+
+    private $allowedSettings = array(
+        "CT", "VERSION", "CL", "text", "responseType", "colorfull", "color0", "color1", "moduleSize"
+    );
+
+    private $settings = array();
+
+    private $defaultSettings = array(
+        "QRsize" => 21,             // QR size
+        "CT" => "byte",             // encoding type
+        "VERSION" => 1,             // QR version
+        "CL" => "M",                // correction level
+        "CLI" => 1,                 // correction level index
+        "MI" => 1,                  // mask index
+        "text" => "Hello, World!",  // main text
+        "responseType" => "base64", // response type [base64 for img src]
+        "b64" => null,              // base64 response
+        "colorfull" => false,       // colorate QR
+        "color0" => 0x00ccff,       // QR color 1
+        "color1" => 0x003355,       // QR color 2
+        "moduleSize" => 2,          // size of one module
+    );
+
+    
   
     //temp data
     private $MI; //mask index
@@ -220,4 +225,299 @@ class QR
       "((X*Y) % 2 + (X*Y) % 3) % 2",
       "((X*Y) % 3 + (X+Y) % 2) % 2"
     );
+
+    //finally, methods...
+
+    public function set( array $a = array() )
+    {
+
+        foreach ($this->defaultSettings as $k => $v) {
+            if (isset($a[$k]) && in_array($k, $this->allowedSettings)) {
+                $this->settings[$k] = $v;
+            } else {
+                $this->settings[$k] = $this->defaultSettings[$k];
+            }
+        }
+
+        $this->initiate();
+
+    }
+
+    private function getDataLength()
+    {
+        foreach ($this->datalengtharray[$this->CT] as $i => $row) {
+            if ($this->VERSION >= $row['from'] && $this->VERSION <= $row['to']) {
+                return $row['bits'];
+            }
+        }
+    }
+
+    private function initiate()
+    {
+        $this->settings['CL'] = $this->CLarr[ $this->settings['CLI'] ];
+        $this->textBytesTotal = mb_strlen($this->settings['text'], "UTF-8");
+
+        $this->maxInfo = $this->MaxInfoArray[$this->settings['CL']][$this->settings['VERSION']-1];
+        $this->maxInfoBytes = $this->maxInfo / 8;
+        $this->ECC = $this->ECCodewordsarray[$this->settings['CL']][$this->settings['VERSION']-1];
+        $this->LPPS = $this->LPP[$this->settings['VERSION']];
+
+        $this->totalBytes = $this->textBytesTotal + 3;
+    
+        if ($this->totalBytes > $this->maxInfoBytes) {
+            if ($this->settings['VERSION'] < 40) {
+                //upgrading the version when there is not enough space and re-initialization
+                $this->settings['VERSION']++;
+                $this->initiate();
+            } else {
+                if ($this->settings['CLI'] < 4) {
+                    //lowering the correction level when there is not enough space and the maximum version and re-initialization
+                    $this->settings['CLI']++;
+                    $this->initiate();
+                } else {
+                    $this->error = "Too much info: $this->textBytesTotal bytes.";
+                }
+            }
+        } else {
+            $this->generateQR();
+        }
+    }
+
+    private function futherInitiation()
+    {
+        $this->CTC = $this->CTs[$this->settings['CT']];
+        $this->MBCODE = $this->masksCodes[$this->settings['CL']][$this->settings['MI'] - 1];
+        if ($this->settings['VERSION'] > 6) {
+            $this->VERCODE = $this->verCodes[$this->settings['VERSION']];
+        }
+        $this->DATALENGTH = $this->getDataLength();
+        $this->GP = $this->GeneratorPolynomials[$this->ECC];
+        $this->BNUM = $this->blocksnum[$this->settings['CL']][$this->settings['VERSION']-1];
+        $this->settings['QRsize'] = 17 + ($this->settings['VERSION'] * 4);
+        
+        if ($this->bittrace) $this->settings['moduleSize'] = 28;
+
+        if ($this->SIZE == null or $this->SIZE == "auto") {
+            $this->SIZE = $this->settings['QRsize'] * $this->settings['moduleSize'];
+        } else {
+            $this->settings['moduleSize'] = floor((int)$this->SIZE / $this->settings['QRsize'] );
+            $this->SIZE = $this->settings['QRsize'] * $this->settings['moduleSize'];
+        }
+
+        $this->PiP = $this->PiM * $this->settings['moduleSize'];
+        $this->totalBitsShouldBe = $this->maxInfo + ($this->ECC * $this->BNUM * 8);
+    }
+
+    private function getInvertedGalua($num)
+    {
+        return array_search($num, $this->GaloisField);
+    }
+
+    private function getGalua($num)
+    {
+        return $this->GaloisField[$num];
+    }
+
+    private function generateQR()
+    {
+        $this->futherInitiation();
+        $this->defineEmptyMatrix();
+
+        $CTFUNC = $this->CTfuncs[$this->settings['CT']];
+        $this->$CTFUNC();
+    
+        $this->genImage();
+
+        /*if($this->debug){
+          $this->debuggin();
+        }*/
+    }
+
+    private function nrmltnum($num, $x = 8)
+    {
+        while (strlen($num) < $x) $num='0'.$num;
+        return $num;
+    }
+
+    //XOR
+    private function bitbybit($n1, $n2)
+    {
+        $b1 = $this->nrmltnum(decbin($n1));
+        $b2 = $this->nrmltnum(decbin($n2));
+        $b3 = array();
+        for ($i=0; $i<8; $i++) {
+            $b3[] = $b1[$i]==1 ^ $b2[$i]==1;
+        }
+
+        return bindec( implode('',$b3) );
+    }
+
+    private function _xor($b1, $b2)
+    {
+        $b3 = array();
+        for($i=0; $i<count($b1); $i++){
+            $b3[] = $b1[$i]==1 ^ $b2[$i]==1;
+        }
+        return implode('',$b3);
+    }
+
+    private function ct_byte_gen(){
+        $this->BARR = array();
+        $this->systemInfo = $this->CTC . $this->nrmltnum(decbin($this->textBytesTotal),$this->DATALENGTH);
+        
+        $binary = $this->systemInfo;
+    
+        for ($i=0; $i<$this->textBytesTotal; $i++) {
+            $this->BARR[] = ord($this->settings['text'][$i]);
+            $binary .= $this->nrmltnum(decbin(ord($this->settings['text'][$i])));
+        }
+        
+        $textremain8 = strlen($binary) % 8;
+        while ($textremain8 > 0) {
+            $binary .= '0';
+            $textremain8--;
+        }
+
+        $damnBeforeFullfilling = $binary;
+        $bitsRemain = $this->maxInfo - strlen($binary);
+        $index = 1;
+        while ($bitsRemain > 0) {
+            $binary .= ($index % 2==1?"11101100":"00010001");
+            $index++;
+            $bitsRemain -= 8;
+        }
+        $binlen = strlen($binary);
+    
+        $this->BLOCKS = array();
+        $bytesPerBlock = floor($this->maxInfoBytes / $this->BNUM);
+        $blockSizes = array();
+        for ($i=0;$i<$this->BNUM;$i++) {
+          $blockSizes[$i] = $bytesPerBlock;
+        }
+        $remain = $this->maxInfoBytes % $this->BNUM;
+        $index = $this->BNUM - 1;
+        while ($remain > 0) {
+            $blockSizes[$index] = $bytesPerBlock  + 1;
+            $index--;
+            $remain--;
+        }
+        $index = 0;
+        for ($i=0; $i<$this->BNUM; $i++) {
+            $this->BLOCKS[$i] = array();
+            for ($n=0; $n<$blockSizes[$i]; $n++) {
+                if ($binlen > $index*8) {
+                    $this->BLOCKS[$i][$n] = bindec(substr($binary,$index*8,8));
+                }
+                $index++;
+            }
+        }
+        if ($binlen != $this->maxInfo) {
+            $this->error = "The data length does not match the required length $binlen, $this->maxInfo";
+        }
+        $MAXBLOCKLEN = 0;
+        
+        for ($b=0; $b<$this->BNUM; $b++) {
+            $VARARR = $this->BLOCKS[$b];
+            $BLOCKLEN = count($this->BLOCKS[$b]);
+            $MAXBLOCKLEN = $MAXBLOCKLEN < $BLOCKLEN ? $BLOCKLEN : $MAXBLOCKLEN;
+            for ($o=0; $o<$this->ECC; $o++) {
+                $VARARR[]=0;
+            }
+            for ($i=0; $i<$BLOCKLEN; $i++) {
+                $A = array_shift($VARARR);
+                $VARARR[]=0;
+                if ($A > 0) {
+                    $B = $this->getInvertedGalua($A);
+                    for ($m=0; $m<$this->ECC; $m++) {
+                        $C = $B + $this->GP[$m];
+                        $C = $this->getGalua($C % 255);
+                        $VARARR[$m] = $this->bitbybit($C,$VARARR[$m]);
+                    }
+                } else {
+                    break;
+                }
+            }
+            array_splice($VARARR, $this->ECC);
+            $this->CORBLOCKS[$b] = $VARARR;
+        }
+        $this->totalDataModulesWithEC = 0;
+        $BYTEFLOW = '';
+
+        for ($s=0; $s<$MAXBLOCKLEN; $s++) {
+            for ($b=0; $b<$this->BNUM; $b++) {
+                if (isset($this->BLOCKS[$b][$s]) and $this->BLOCKS[$b][$s] >= 0) {
+                    $BYTEFLOW .= $this->nrmltnum(decbin($this->BLOCKS[$b][$s]));
+                    $this->totalDataModulesWithEC += 8;
+                }
+            }
+        }
+        if ($binlen!=$this->maxInfo) {
+            $this->error = "The data length does not match the required bits count $binlen, $this->maxInfo";
+        }
+        
+        for ($s=0; $s<$this->ECC; $s++) {
+            for ($b=0; $b<$this->BNUM; $b++) {
+                if(isset($this->CORBLOCKS[$b][$s]) and $this->CORBLOCKS[$b][$s] >= 0) {
+                    $this->CORBLOCKS[$b][$s] = $this->nrmltnum(decbin($this->CORBLOCKS[$b][$s]));
+                    $BYTEFLOW .= $this->CORBLOCKS[$b][$s];
+                    $this->totalDataModulesWithEC += 8;
+                }
+            }
+        }
+        $this->totalCanvasFreeModules = 0;
+        $byteflowlength = strlen($BYTEFLOW);
+        if ($byteflowlength!=$this->totalBitsShouldBe) {
+            $this->error = "The length of the stream does not match the number of free bits $byteflowlength, $this->totalBitsShouldBe";
+        }
+        
+        $li = $this->QRsize-1;
+        $x = 0;
+        $h = 0;
+        $cc = 0;
+        foreach ($this->MATRIX as $x => $row) {
+            foreach ($row as $y => $cell) {
+                if ($cell == 9) {
+                    $this->totalCanvasFreeModules++;
+                }
+            }
+        }
+    
+        for ($cc=ceil($this->QRsize/2); $cc>=0; $cc--) {
+            if ($cc%2==1) {
+                $num1=0;
+                $num2=$li;
+            } else {
+                $num1=0-$li;
+                $num2=0;
+            }
+        
+            for ($y=$num1; $y<=$num2; $y++) {
+                $yy = abs($y);
+                $x = $cc*2;
+                if ($cc<=3) $x-=1;
+                for ($xx=$x; $xx>=$x-1; $xx--) {
+                    if ($this->MATRIX[$xx][$yy] == 9) {
+                        if ($this->multicolor or $this->bittrace) {
+                            $this->MATRIX[$xx][$yy] = $h;
+                        } else {
+                            $this->MATRIX[$xx][$yy] = $this->applyMask($xx,$yy)?($BYTEFLOW[$h]==0?1:0):$BYTEFLOW[$h];
+                            if (!isset($BYTEFLOW[$h])) $this->MATRIX[$xx][$yy] = 9;
+                        }
+                        $h++;
+                    }
+                }  
+            }
+        }
+
+        if ($this->totalCanvasFreeModules != $this->totalDataModulesWithEC) {
+            $this->error = "The data length does not match the number of free bits $this->totalCanvasFreeModules, $this->totalDataModulesWithEC";
+    
+        }
+        if ($this->totalCanvasFreeModules != $this->totalBitsShouldBe) {
+            $this->error = "The number of free modules does not match the number of free bits $this->totalCanvasFreeModules, $this->totalBitsShouldBe";
+        }
+    }
 }
+
+$QR = new QR();
+$QR->set(["text"=>"WHAT"]);
