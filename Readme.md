@@ -1,5 +1,6 @@
-<h1>PHP QR Generator</h1>
-
+# h1 PHP QR Generator
+==================================
+![QR generated example](https://smix-soft.ru/images/qr.png)
 Example of usage:
 ```php
 <?php
@@ -14,15 +15,17 @@ $image = $QR->set([
 ])->getResponse();
 ?>
 ```
-Allowed settings:
+### h3 Allowed settings:
 
-"encodingType" => "byte",   |  encoding type (only byte encoding type released for now)
-"text" => "Hello, World!",  |  main text
-"responseType" => "base64", |  response type [base64, image or img html element]
-"colorfull" => false,       |  colorate QR (use colors)
-"color0" => 0x00ccff,       |  QR color 1 (background color)
-"color1" => 0x003355,       |  QR color 2 (modules color)
-"moduleSize" => 2,          |  size of one module (size of one point in pixels)
-"multicolor" => false,      |  colors for tracking (debug stuff)
-"bittrace" => false,        |  sequence numbers of bits to check (debug stuff)
-"debug" => false,           |  debug flag (printing debug info)
+Setting         | Type    | Possible values    | Comment
+----------------|---------|--------------------|----------------------
+encodingType    | string  | byte               | encoding type (only byte encoding type released for now)
+text            | string  | any                | main text
+responseType    | string  | base64, image, img | response type
+colorfull       | boolean | false, true        | colorate QR with futher colors
+color0          | hex     | any hex color      | QR color 1 (background color)
+color1          | hex     | any hex color      | QR color 2 (modules color)
+moduleSize      | integer | >0                 | size of one module in pixels
+multicolor      | boolean | false, true        | colors for tracking (debug stuff)
+bittrace        | boolean | false, true        | sequence numbers of bits to check (debug stuff)
+debug           | boolean | false, true        | debug flag (printing debug info)
