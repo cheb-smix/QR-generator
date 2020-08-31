@@ -1,40 +1,43 @@
 <?php
 class QR
 {
-    private $debug = true; // debug flag
+    //private $debug = false; // debug flag
+    //private $multicolor = false; // colors for tracking 
+    //private $bittrace = false; // sequence numbers of bits to check
     private $error = "";
 
     private $allowedSettings = array(
-        "CT", "text", "responseType", "colorfull", "color0", "color1", "moduleSize"
+        "encodingType", "text", "responseType", "colorfull", "color0", "color1", "moduleSize" , "debug", "multicolor", "bittrace"
     );
 
     private $settings = array();
 
     private $defaultSettings = array(
         "QRsize" => 21,             // QR size
-        "CT" => "byte",             // encoding type
+        "encodingType" => "byte",   // encoding type
         "VERSION" => 1,             // QR version
         "CL" => "M",                // correction level
         "CLI" => 1,                 // correction level index
-        "MI" => 1,                  // mask index
+        "MI" => 2,                  // mask index
         "text" => "Hello, World!",  // main text
+        "moduleSize" => 2,          // size of one module
         "responseType" => "base64", // response type [base64 for img src]
         "colorfull" => false,       // colorate QR
         "color0" => 0x00ccff,       // QR color 1
         "color1" => 0x003355,       // QR color 2
-        "moduleSize" => 2,          // size of one module
+        "multicolor" => false,      // colors for tracking 
+        "bittrace" => false,        // sequence numbers of bits to check
+        "debug" => false,           // debug flag
     );
   
     // temp data
     private $b64 = null; // for base64 response
-    private $MI; // mask index
-    private $SIZE; // QR size
-    private $CLI; // correction level index
+    private $image = null; // image
+    private $SIZE; // QR full size
     private $textBytesTotal = null; // main text bytes total
     private $CTC = null; // encoding type binary code
     private $maxInfo = null; // usefull information maximum length in bits
     private $maxInfoBytes = null; // usefull information maximum length in bytes
-    private $totalBytes = null; // total information bytes count
     private $MBCODE = null; // mask binary code
     private $VERCODE = null; // QR version binary code
     private $LPPS = null; // alignments positions
@@ -48,8 +51,6 @@ class QR
     private $PiM = 5; // offset in modules
     private $BLOCKS = array(); // data bytes blocks
     private $CORBLOCKS = array(); // correction bytes blocks
-    private $multicolor = false; // colors for tracking 
-    private $bittrace = false; // sequence numbers of bits to check
     private $totalCanvasFreeModules = 0; // number of available modules to check before entering data
     private $totalDataModulesWithEC = 0; // total number of bits to place
     private $totalBitsShouldBe = 0; // the provisional number of bits of the canvas
@@ -242,9 +243,31 @@ class QR
         return $this;
     }
 
+    public function getResponse()
+    {
+        ob_start(); 
+        imagepng($this->image);
+        $img = ob_get_contents();
+        ob_end_clean();
+        imagedestroy($this->image);
+        
+        if ($this->settings['responseType'] == "image") {
+            header('Content-type: image/png');
+            echo $img;
+        } else {
+            $this->b64 = 'data:image/png;base64,'.base64_encode($img); 
+            if ($this->settings['responseType'] == "base64") {
+                return $this->b64;
+            } else {
+                return "<img style='box-shadow: 0 0 10px black' src='$this->b64' />";
+            }
+        }
+        
+    }
+
     private function getDataLength()
     {
-        foreach ($this->datalengtharray[$this->settings['CT']] as $i => $row) {
+        foreach ($this->datalengtharray[$this->settings['encodingType']] as $i => $row) {
             if ($this->settings['VERSION'] >= $row['from'] && $this->settings['VERSION'] <= $row['to']) {
                 return $row['bits'];
             }
@@ -254,16 +277,16 @@ class QR
     private function initiate()
     {
         $this->settings['CL'] = $this->CLarr[ $this->settings['CLI'] ];
-        $this->textBytesTotal = mb_strlen($this->settings['text'], "UTF-8");
+        $this->textBytesTotal = strlen($this->settings['text']);
+        /*var_dump($this->settings['text'],$this->textBytesTotal);
+        exit;*/
 
         $this->maxInfo = $this->MaxInfoArray[$this->settings['CL']][$this->settings['VERSION'] - 1];
         $this->maxInfoBytes = $this->maxInfo / 8;
         $this->ECC = $this->ECCodewordsarray[$this->settings['CL']][$this->settings['VERSION'] - 1];
         $this->LPPS = $this->LPP[$this->settings['VERSION']];
-
-        $this->totalBytes = $this->textBytesTotal + 3;
     
-        if ($this->totalBytes > $this->maxInfoBytes) {
+        if ($this->textBytesTotal + 2 > $this->maxInfoBytes) {
             if ($this->settings['VERSION'] < 40) {
                 // upgrading the version when there is not enough space and re-initialization
                 $this->settings['VERSION']++;
@@ -284,7 +307,7 @@ class QR
 
     private function futherInitiation()
     {
-        $this->CTC = $this->CTs[$this->settings['CT']];
+        $this->CTC = $this->CTs[$this->settings['encodingType']];
         $this->MBCODE = $this->masksCodes[$this->settings['CL']][$this->settings['MI'] - 1];
         if ($this->settings['VERSION'] > 6) {
             $this->VERCODE = $this->verCodes[$this->settings['VERSION']];
@@ -294,7 +317,7 @@ class QR
         $this->BNUM = $this->blocksnum[$this->settings['CL']][$this->settings['VERSION'] - 1];
         $this->settings['QRsize'] = 17 + ($this->settings['VERSION'] * 4);
         
-        if ($this->bittrace) $this->settings['moduleSize'] = 28;
+        if ($this->settings['bittrace']) $this->settings['moduleSize'] = 28;
 
         if ($this->SIZE == null or $this->SIZE == "auto") {
             $this->SIZE = $this->settings['QRsize'] * $this->settings['moduleSize'];
@@ -322,12 +345,12 @@ class QR
         $this->futherInitiation();
         $this->defineEmptyMatrix();
 
-        $CTFUNC = $this->CTfuncs[$this->settings['CT']];
+        $CTFUNC = $this->CTfuncs[$this->settings['encodingType']];
         $this->$CTFUNC();
     
         $this->genImage();
 
-        if ($this->debug) {
+        if ($this->settings['debug']) {
             $this->debuggin();
         }
     }
@@ -481,7 +504,7 @@ class QR
             }
         }
     
-        for ($cc = floor($this->settings['QRsize'] / 2); $cc >= 0; $cc--) {
+        for ($cc = floor($this->settings['QRsize'] / 2); $cc > 0; $cc--) {
             if ($cc % 2 == 1) {
                 $num1 = 0;
                 $num2 = $li;
@@ -496,7 +519,7 @@ class QR
                 if ($cc <= 3) $x -= 1;
                 for ($xx = $x; $xx >= $x-1; $xx--) {
                     if ($this->MATRIX[$xx][$yy] == 9) {
-                        if ($this->multicolor or $this->bittrace) {
+                        if ($this->settings['multicolor'] or $this->settings['bittrace']) {
                             $this->MATRIX[$xx][$yy] = $h;
                         } else {
                             if (!isset($BYTEFLOW[$h])) $this->MATRIX[$xx][$yy] = 9;
@@ -665,12 +688,12 @@ class QR
     }
     private function genImage()
     {
-        $image = imagecreatetruecolor($this->SIZE + ($this->PiP * 2), $this->SIZE + ($this->PiP * 2));
-        if (!$image) {
+        $this->image = imagecreatetruecolor($this->SIZE + ($this->PiP * 2), $this->SIZE + ($this->PiP * 2));
+        if (!$this->image) {
             $this->error = 'Cannot create image';
             return false;
         }
-        imagefill($image, 0, 0, $this->settings['colorfull'] ? $this->settings['color0'] : 0xffffff);
+        imagefill($this->image, 0, 0, $this->settings['colorfull'] ? $this->settings['color0'] : 0xffffff);
 
         $matrix = imagecreatetruecolor($this->SIZE, $this->SIZE);
         imagefill($matrix, 0, 0, 0xccff00);
@@ -682,7 +705,7 @@ class QR
 
         foreach ($this->MATRIX as $x => $col) {
             foreach ($col as $y => $cell) {
-                if ($this->bittrace) {
+                if ($this->settings['bittrace']) {
                     if ($cell == 0) {
                         imagefilledrectangle($matrix, $x * $this->settings['moduleSize'], $y * $this->settings['moduleSize'], ($x + 1) * $this->settings['moduleSize'], ($y + 1) * $this->settings['moduleSize'], 0xffffff);
                     }
@@ -722,23 +745,9 @@ class QR
             }
         }
         imagecolortransparent($matrix, 0xccff00);
-        imagecopy($image, $matrix, $this->PiP, $this->PiP, 0, 0, $this->SIZE, $this->SIZE);
-
-        ob_start(); 
-        imagepng($image);
-        $this->b64 = 'data:image/png;base64,'.base64_encode(ob_get_contents()); 
-        ob_end_clean(); 
-
-        if ($this->settings['responseType'] == "base64") {
-            return $this->b64;
-        } elseif ($this->settings['responseType'] == "imgElement") {
-            return "<img style='box-shadow: 0 0 10px black' src='$this->b64' />";
-        } else {
-            header('Content-type: image/png');
-            imagepng($image);
-        }
-        imagedestroy($image);
+        imagecopy($this->image, $matrix, $this->PiP, $this->PiP, 0, 0, $this->SIZE, $this->SIZE);
     }
+    
     private function debuggin()
     {
         ?><table border=1 borderColor="grey" cellpadding=4 cellspacing=0 ><tr><td>Variable</td><td>Value</td></tr><?php
@@ -757,23 +766,29 @@ class QR
 
 # allowed settings
 
-# "CT" => "byte",             // encoding type
+# "encodingType" => "byte",   // encoding type
 # "text" => "Hello, World!",  // main text
-# "responseType" => "base64", // response type [base64 for img src]
+# "responseType" => "base64", // response type [base64, image or img html element]
 # "colorfull" => false,       // colorate QR
 # "color0" => 0x00ccff,       // QR color 1
 # "color1" => 0x003355,       // QR color 2
-# "moduleSize" => 2,          // size of one module
-
-
+# "moduleSize" => 2,          // size of one module in pixels
+# "multicolor" => false,      // colors for tracking 
+# "bittrace" => false,        // sequence numbers of bits to check
+# "debug" => false,           // debug flag
 
 
 $QR = new QR();
-$QR->set([
-    "text"=>"Что не так с русским языком тут?",
-    "responseType"=>"imgElement",
-    //"colorfull"=>true,
+$image = $QR->set([
+    "text"=>"Hello, World! This is my QR Generator on PHP, but for now it works only on 1-9 versions, that means text maximum length is 180 bytes. Yeah, that is very sad, but do we need more???",
+    "responseType"=>"image",
+    "colorfull"=>true,
     "moduleSize"=>5,
-    "color0" => 0xccff00,
-    "color1" => 0x151515,
-]);
+    "color0" => 0x00eeff,
+    "color1" => 0x005577,
+    "debug" => false
+])->getResponse();
+
+var_dump($image);
+
+#useful info max length for now is 180 bytes; QR works good on 1-9 versions, and something goes bad on higher versions
