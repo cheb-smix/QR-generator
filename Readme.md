@@ -2,6 +2,7 @@
 ==================================
 
 ![](https://smix-soft.ru/images/qr.png "QR generated example")
+
 Example of usage:
 ```php
 <?php
