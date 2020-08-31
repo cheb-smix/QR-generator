@@ -3,18 +3,33 @@
 
 ![](https://smix-soft.ru/images/qr.png "QR generated example")
 
-Example of usage:
+Usage examples:
 ```php
 <?php
 $QR = new QR();
-$image = $QR->set([
+$imgElement = $QR->set([
     "text"=>"Hello, World! This is my QR Generator on PHP, but for now it works only on 1-9 versions, that means text maximum length is 180 bytes. Yeah, that is very sad, but do we need more???",
-    "responseType"=>"image",
+    "responseType"=>"img",
     "colorfull"=>true,
     "moduleSize"=>5,
     "color0" => 0x00eeff,
     "color1" => 0x005577,
 ])->getResponse();
+# You've got <img> element in $imgElement 
+
+$base64 = $QR->set([
+    "text"=>"Hello, World! This is my QR Generator on PHP, but for now it works only on 1-9 versions, that means text maximum length is 180 bytes. Yeah, that is very sad, but do we need more???",
+    "responseType"=>"base64",
+    "moduleSize"=>4,
+])->getResponse();
+# You've got base64 data in $base64, you can use it in your <img> element or save in database as text for example =)
+
+$QR->set([
+    "text"=>"Hello, World! This is my QR Generator on PHP, but for now it works only on 1-9 versions, that means text maximum length is 180 bytes. Yeah, that is very sad, but do we need more???",
+    "responseType"=>"image",
+    "moduleSize"=>4,
+])->getResponse();
+# This reponse type displays a ready-made image with headers
 ?>
 ```
 ### Allowed settings:

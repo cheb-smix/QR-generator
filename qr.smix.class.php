@@ -1,9 +1,6 @@
 <?php
 class QR
 {
-    //private $debug = false; // debug flag
-    //private $multicolor = false; // colors for tracking 
-    //private $bittrace = false; // sequence numbers of bits to check
     private $error = "";
 
     private $allowedSettings = array(
@@ -777,18 +774,32 @@ class QR
 # "bittrace" => false,        // sequence numbers of bits to check
 # "debug" => false,           // debug flag
 
+/*
+Usage examples: 
 
 $QR = new QR();
-$image = $QR->set([
+echo $QR->set([
     "text"=>"Hello, World! This is my QR Generator on PHP, but for now it works only on 1-9 versions, that means text maximum length is 180 bytes. Yeah, that is very sad, but do we need more???",
-    "responseType"=>"image",
+    "responseType"=>"img",
     "colorfull"=>true,
     "moduleSize"=>5,
     "color0" => 0x00eeff,
-    "color1" => 0x005577,
-    "debug" => false
+    "color1" => 0x005577
 ])->getResponse();
 
-var_dump($image);
+$QR = new QR();
+$base64 = $QR->set([
+    "text"=>"Hello, World! This is my QR Generator on PHP, but for now it works only on 1-9 versions, that means text maximum length is 180 bytes. Yeah, that is very sad, but do we need more???",
+    "responseType"=>"base64"
+])->getResponse();
+
+$QR = new QR();
+$QR->set([
+    "text"=>"Hello, World! This is my QR Generator on PHP, but for now it works only on 1-9 versions, that means text maximum length is 180 bytes. Yeah, that is very sad, but do we need more???",
+    "responseType"=>"image",
+    "moduleSize"=>3,
+])->getResponse();
+
+*/
 
 #useful info max length for now is 180 bytes; QR works good on 1-9 versions, and something goes bad on higher versions
