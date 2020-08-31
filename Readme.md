@@ -1,6 +1,7 @@
-# h1 PHP QR Generator
+# PHP QR Generator
 ==================================
-![QR generated example](https://smix-soft.ru/images/qr.png)
+
+![](https://smix-soft.ru/images/qr.png "QR generated example")
 Example of usage:
 ```php
 <?php
@@ -15,7 +16,7 @@ $image = $QR->set([
 ])->getResponse();
 ?>
 ```
-### h3 Allowed settings:
+### Allowed settings:
 
 Setting         | Type    | Possible values    | Comment
 ----------------|---------|--------------------|----------------------
