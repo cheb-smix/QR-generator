@@ -1,7 +1,8 @@
 <h1>PHP QR Generator</h1>
-![QR generated example](https://smix-soft.ru/images/qr.png)
+
 Example of usage:
 ```php
+<?php
 $QR = new QR();
 $image = $QR->set([
     "text"=>"Hello, World! This is my QR Generator on PHP, but for now it works only on 1-9 versions, that means text maximum length is 180 bytes. Yeah, that is very sad, but do we need more???",
@@ -11,6 +12,7 @@ $image = $QR->set([
     "color0" => 0x00eeff,
     "color1" => 0x005577,
 ])->getResponse();
+?>
 ```
 Allowed settings:
 
